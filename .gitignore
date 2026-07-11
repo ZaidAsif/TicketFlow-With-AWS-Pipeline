@@ -1,3 +1,28 @@
 node_modules
 .env
+.env.local
 .env.example
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+terraform/terraform.tfvars
+
+# Packer
+packer/manifest.json
+packer/.packer.d/
+
+# AMI / Packer logs
+*.log
+
+# Frontend build output (Next.js)
+frontend/.next/
+frontend/out/
+
+# SSH keys (prevent accidental commit)
+*.pem
+
+# Stray files
+New Text Document.txt
+*.zip

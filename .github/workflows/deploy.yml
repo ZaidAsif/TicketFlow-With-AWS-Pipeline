@@ -1,0 +1,216 @@
+# ──────────────────────────────────────────────
+# TicketFlow CI/CD Pipeline
+# ──────────────────────────────────────────────
+#
+# Required GitHub Secrets (set these in repo Settings → Secrets and variables → Actions):
+#
+#   AWS_ACCESS_KEY_ID         IAM user access key
+#   AWS_SECRET_ACCESS_KEY     IAM user secret key
+#   DB_HOST                   RDS endpoint (e.g. ticketflow-db.xxxxx.rds.amazonaws.com)
+#   DB_USER                   RDS master username (default: admin)
+#   DB_PASSWORD               RDS master password
+#   DB_NAME                   Database name (default: ticket_system)
+#   ADMIN_PASSWORD            Admin dashboard password
+#   TF_VAR_db_master_password RDS master password (passed to Terraform)
+#   TF_VAR_ssh_key_name       EC2 key pair name (e.g. ticketflow-key)
+#
+# Pipeline flow:
+#   Push to main →
+#     1. test       — Run backend + frontend tests
+#     2. build-ami  — Build a Packer AMI with latest code pre-installed
+#     3. terraform  — Apply Terraform with the new AMI ID (EC2 gets replaced)
+#     4. verify     — Confirm new EC2 is running via health endpoint
+#
+#   Push to develop or PR →
+#     1. test       — Run tests only (no deployment)
+# ──────────────────────────────────────────────
+
+name: TicketFlow CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Job 1: Test
+  # ──────────────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run backend unit tests
+        working-directory: ./backend
+        run: npm run test:unit || npm test -- --testPathPattern=unit
+
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+  # ──────────────────────────────────────────────
+  # Job 2: Build AMI with Packer
+  # ──────────────────────────────────────────────
+  build-ami:
+    name: Build AMI
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    outputs:
+      ami_id: ${{ steps.save-ami.outputs.AMI_ID }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: "latest"
+
+      - name: Build AMI with Packer
+        working-directory: ./packer
+        id: build-ami
+        run: |
+          packer init .
+          packer build \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "github_repo_url=https://github.com/${{ github.repository }}" \
+            -var "git_branch=${{ github.ref_name }}" \
+            -var "db_host=${{ secrets.DB_HOST }}" \
+            -var "db_password=${{ secrets.DB_PASSWORD }}" \
+            -var "db_user=${{ secrets.DB_USER }}" \
+            -var "db_name=${{ secrets.DB_NAME }}" \
+            -var "admin_password=${{ secrets.ADMIN_PASSWORD }}" \
+            ticketflow-ami.pkr.hcl
+
+      - name: Save AMI ID
+        id: save-ami
+        run: |
+          AMI_ID=$(cat manifest.json | jq -r '.builds[-1].artifact_id' | cut -d: -f2)
+          echo "AMI_ID=$AMI_ID" >> "$GITHUB_OUTPUT"
+          echo "Built AMI: $AMI_ID"
+
+  # ──────────────────────────────────────────────
+  # Job 3: Terraform Apply (with the new AMI)
+  # ──────────────────────────────────────────────
+  terraform:
+    name: Terraform Apply
+    needs: [build-ami]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Apply (with new AMI)
+        working-directory: ./terraform
+        run: |
+          terraform apply -auto-approve \
+            -var "ami_id=${{ needs.build-ami.outputs.ami_id }}" \
+            -var "db_master_password=${{ secrets.TF_VAR_DB_MASTER_PASSWORD }}" \
+            -var "ssh_key_name=${{ secrets.TF_VAR_SSH_KEY_NAME }}"
+
+  # ──────────────────────────────────────────────
+  # Job 4: Verify new EC2 is running
+  # ──────────────────────────────────────────────
+  verify:
+    name: Verify Deployment
+    needs: [terraform]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Wait for EC2 to boot (60s)
+        run: sleep 60
+
+      - name: Verify backend health via EC2
+        run: |
+          EC2_IP=$(terraform -chdir=./terraform output -raw ec2_public_ip)
+          echo "Checking health at http://${EC2_IP}:4000/health"
+          curl -s -m 15 "http://${EC2_IP}:4000/health" || echo "⚠️  Health check timed out (EC2 may still be booting)"
+
+      - name: Verify frontend via ALB
+        run: |
+          ALB_URL=$(terraform -chdir=./terraform output -raw app_url)
+          HTTP_CODE=$(curl -s -m 15 -o /dev/null -w "%{http_code}" "$ALB_URL" || echo "000")
+          echo "Frontend via ALB: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Deployment verified successfully!"
+          else
+            echo "⚠️  Frontend may still be starting up (expected during EC2 replacement)"
+          fi

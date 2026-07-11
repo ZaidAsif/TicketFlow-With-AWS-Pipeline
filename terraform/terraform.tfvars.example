@@ -1,0 +1,28 @@
+# ──────────────────────────────────────────────
+# TicketFlow Terraform Variables
+# ──────────────────────────────────────────────
+# Copy this file to terraform.tfvars and fill in your values:
+#   cp terraform.tfvars.example terraform.tfvars
+
+# REQUIRED: Your SSH key pair name in AWS EC2
+# Create one first if you haven't:
+#   aws ec2 create-key-pair --key-name ticketflow-key --query 'KeyMaterial' --output text > ticketflow-key.pem
+ssh_key_name = "ticketflow-key"
+
+# REQUIRED: RDS master password (choose a strong one)
+db_master_password = "your-strong-password-here"
+
+# OPTIONAL: Pre-built Packer AMI ID
+# If set, EC2 boots from this AMI (faster boot, no need to install Node.js/clone repo).
+# If empty, boots from stock Ubuntu 22.04 and runs full bootstrap in user-data.
+# Set this from the CI/CD pipeline's build-ami job output.
+# ami_id = "ami-0abc123def456"
+
+# OPTIONAL: Admin dashboard password (change from default!)
+# admin_password = "your-admin-password"
+
+# OPTIONAL: GitHub repo URL to clone on EC2
+# github_repo_url = "https://github.com/ZaidAsif/TicketFlow-With-AWS-Pipeline.git"
+
+# OPTIONAL: Your public IP for SSH/direct access
+# my_ip = "125.209.102.118/32"

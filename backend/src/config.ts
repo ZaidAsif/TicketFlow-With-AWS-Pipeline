@@ -43,6 +43,7 @@ export const config: Config = {
     password: process.env.ADMIN_PASSWORD || 'admin123',
   },
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  // Support comma-separated CORS origins (parsed to array in index.ts)
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || '50', 10),

@@ -14,9 +14,13 @@ const app = express();
 // Trust proxy for rate limiting behind a load balancer
 app.set('trust proxy', 1);
 
-// CORS configuration
+// CORS configuration — supports comma-separated origins
+const corsOrigin = config.corsOrigin.includes(',')
+  ? config.corsOrigin.split(',').map(s => s.trim())
+  : config.corsOrigin;
+
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: corsOrigin,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
