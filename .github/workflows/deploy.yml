@@ -112,6 +112,7 @@ jobs:
         run: |
           packer init .
           packer build \
+            -var "ami_name=ticketflow-ami-${{ github.run_id }}" \
             -var "aws_region=${{ env.AWS_REGION }}" \
             -var "github_repo_url=https://github.com/${{ github.repository }}" \
             -var "git_branch=${{ github.ref_name }}" \

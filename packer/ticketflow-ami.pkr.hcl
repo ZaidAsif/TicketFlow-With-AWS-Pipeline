@@ -7,6 +7,11 @@ packer {
   }
 }
 
+variable "ami_name" {
+  type    = string
+  default = "ticketflow-ami"
+}
+
 variable "aws_region" {
   type    = string
   default = "us-east-1"
@@ -56,9 +61,10 @@ source "amazon-ebs" "ubuntu" {
   source_ami    = "ami-0e86e20dae9224db8"  # Ubuntu 22.04 LTS us-east-1
   instance_type = "t3.micro"
   ssh_username  = "ubuntu"
+  ami_name      = var.ami_name
 
   tags = {
-    Name        = "ticketflow-ami-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+    Name        = var.ami_name
     Project     = "TicketFlow"
     ManagedBy   = "Packer"
   }
