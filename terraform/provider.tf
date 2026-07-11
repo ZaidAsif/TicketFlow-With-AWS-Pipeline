@@ -2,9 +2,11 @@ terraform {
   required_version = ">= 1.5.0"
 
   backend "s3" {
-    bucket = "ticketflow-terraform-state-360394172900"
-    key    = "terraform.tfstate"
-    region = "us-east-1"
+    bucket         = "ticketflow-terraform-state-360394172900"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
   }
 
   required_providers {

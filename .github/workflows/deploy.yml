@@ -79,11 +79,62 @@ jobs:
         run: npm run build
 
   # ──────────────────────────────────────────────
-  # Job 2: Build AMI with Packer
+  # Job 2: Terraform Validate — catch config errors fast
+  # ──────────────────────────────────────────────
+  validate:
+    name: Terraform Validate
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Format Check
+        working-directory: ./terraform
+        run: terraform fmt -check -diff
+        continue-on-error: true
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: |
+          terraform plan \
+            -var "db_master_password=${{ secrets.TF_VAR_DB_MASTER_PASSWORD }}" \
+            -var "ssh_key_name=${{ secrets.TF_VAR_SSH_KEY_NAME }}" \
+            -no-color
+
+      - name: Validation Summary
+        run: |
+          echo "✅ Terraform configuration is valid"
+          echo "⏱  Plan passed — ready for AMI build"
+
+  # ──────────────────────────────────────────────
+  # Job 3: Build AMI with Packer
   # ──────────────────────────────────────────────
   build-ami:
     name: Build AMI
-    needs: [test]
+    needs: [validate]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
 
@@ -131,7 +182,7 @@ jobs:
           echo "Built AMI: $AMI_ID"
 
   # ──────────────────────────────────────────────
-  # Job 3: Terraform Apply (with the new AMI)
+  # Job 4: Terraform Apply (with the new AMI)
   # ──────────────────────────────────────────────
   terraform:
     name: Terraform Apply
@@ -168,7 +219,7 @@ jobs:
             -var "ssh_key_name=${{ secrets.TF_VAR_SSH_KEY_NAME }}"
 
   # ──────────────────────────────────────────────
-  # Job 4: Verify new EC2 is running
+  # Job 5: Verify new EC2 is running
   # ──────────────────────────────────────────────
   verify:
     name: Verify Deployment

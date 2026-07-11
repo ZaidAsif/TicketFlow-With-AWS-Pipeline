@@ -140,4 +140,8 @@ build {
       "sudo mv /home/ubuntu/ticketflow/start-ticketflow.sh /usr/local/bin/start-ticketflow.sh",
     ]
   }
+
+  post-processor "manifest" {
+    output = "manifest.json"
+  }
 }
