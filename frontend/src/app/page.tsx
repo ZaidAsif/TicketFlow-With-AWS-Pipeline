@@ -76,7 +76,7 @@ export default function Home() {
                 <div className="hero">
                   <h1 className="hero-title">Submit a Ticket</h1>
                   <p className="hero-subtitle">
-                    Report a bug, request a feature, or send us your feedback. We&apos;ll get back to you as soon as possible.
+                    Report a bug, request a feature, or send us your feedback. We will get back to you as soon as possible.
                   </p>
                 </div>
 
