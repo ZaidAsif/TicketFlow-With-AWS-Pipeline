@@ -102,6 +102,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.5.0"
+          terraform_wrapper: false  # Avoid wrapper masking real exit codes
 
       - name: Terraform Format Check
         working-directory: ./terraform
@@ -123,11 +124,6 @@ jobs:
             -var "db_master_password=${{ secrets.TF_VAR_DB_MASTER_PASSWORD }}" \
             -var "ssh_key_name=${{ secrets.TF_VAR_SSH_KEY_NAME }}" \
             -no-color
-
-      - name: Validation Summary
-        run: |
-          echo "✅ Terraform configuration is valid"
-          echo "⏱  Plan passed — ready for AMI build"
 
   # ──────────────────────────────────────────────
   # Job 3: Build AMI with Packer
@@ -176,6 +172,7 @@ jobs:
 
       - name: Save AMI ID
         id: save-ami
+        working-directory: ./packer
         run: |
           AMI_ID=$(cat manifest.json | jq -r '.builds[-1].artifact_id' | cut -d: -f2)
           echo "AMI_ID=$AMI_ID" >> "$GITHUB_OUTPUT"
@@ -205,6 +202,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.5.0"
+          terraform_wrapper: false  # Consistency with validate job
 
       - name: Terraform Init
         working-directory: ./terraform
@@ -242,6 +240,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.5.0"
+          terraform_wrapper: false  # Consistency
 
       - name: Terraform Init
         working-directory: ./terraform
