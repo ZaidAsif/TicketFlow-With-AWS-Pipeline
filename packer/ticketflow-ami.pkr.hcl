@@ -110,10 +110,8 @@ build {
   }
 
   # Install frontend dependencies and build
+  # Uses relative API paths — ALB routes /api/* to the backend in production
   provisioner "shell" {
-    environment_vars = [
-      "NEXT_PUBLIC_API_URL=http://localhost:4000",
-    ]
     inline = [
       "cd /home/ubuntu/ticketflow/frontend",
       "npm ci",

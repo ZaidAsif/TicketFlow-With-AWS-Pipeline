@@ -40,7 +40,8 @@ pm2 start npm --name ticketflow-backend -- run dev
 cd /home/ubuntu/ticketflow/frontend
 
 cat > .env.local << EOF
-NEXT_PUBLIC_API_URL=http://$EC2_PUBLIC_IP:4000
+# Use relative API paths — ALB routes /api/* to the backend in production
+NEXT_PUBLIC_API_URL=
 EOF
 
 # Start frontend (already built during AMI creation)
