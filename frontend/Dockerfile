@@ -9,7 +9,7 @@ RUN npm ci --frozen-lockfile
 COPY src/ src/
 COPY public/ public/
 
-ENV NEXT_PUBLIC_API_URL=http://localhost:4000
+# API calls use relative paths by default — ALB handles /api/* routing in production
 RUN npm run build
 
 # Production stage

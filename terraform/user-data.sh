@@ -98,7 +98,9 @@ cd /home/ubuntu/ticketflow/frontend
 
 # Create .env.local
 cat > .env.local << EOF
-NEXT_PUBLIC_API_URL=http://$EC2_PUBLIC_IP:4000
+# Use relative API paths — ALB routes /api/* to the backend in production
+# For local dev, Next.js rewrites proxy /api/* to localhost:4000
+NEXT_PUBLIC_API_URL=
 EOF
 
 # Install dependencies and build

@@ -45,7 +45,7 @@ function AdminLoginForm() {
     try {
       const auth = btoa(`${username}:${password}`);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/tickets`,
+        `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/tickets`,
         {
           headers: {
             Authorization: `Basic ${auth}`,

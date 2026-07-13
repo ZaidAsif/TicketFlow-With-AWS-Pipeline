@@ -5,7 +5,8 @@ import { render, screen } from '@testing-library/react';
 describe('API Client', () => {
   it('should have the correct base URL', () => {
     const { getBaseUrl } = require('@/lib/api');
-    expect(getBaseUrl()).toBe('http://localhost:4000');
+    // Default is empty string for relative API paths (ALB handles routing in production)
+    expect(getBaseUrl()).toBe('');
   });
 });
 

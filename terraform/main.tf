@@ -467,3 +467,58 @@ resource "aws_lb_listener" "http" {
     target_group_arn = aws_lb_target_group.app.arn
   }
 }
+
+# ──────────────────────────────────────────────
+# Backend Target Group & Path-Based Routing
+# ──────────────────────────────────────────────
+
+# Target group for backend API (port 4000)
+resource "aws_lb_target_group" "backend" {
+  name     = "ticketflow-backend-tg"
+  port     = 4000
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    path                = "/health"
+    matcher             = "200"
+  }
+
+  tags = {
+    Name        = "ticketflow-backend-tg"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
+  }
+}
+
+# Backend target group attachment — same EC2 instance, port 4000
+resource "aws_lb_target_group_attachment" "backend" {
+  target_group_arn = aws_lb_target_group.backend.arn
+  target_id        = aws_instance.app.id
+  port             = 4000
+}
+
+# Listener rule: route /api/* requests to the backend target group
+# This enables the frontend to use relative API paths (e.g., /api/categories)
+# which get proxied through the ALB to the backend
+resource "aws_lb_listener_rule" "api" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/*"]
+    }
+  }
+}

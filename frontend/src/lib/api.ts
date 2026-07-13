@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Use relative paths by default (works with Next.js rewrites locally and ALB routing in production)
+// Set NEXT_PUBLIC_API_URL env var for explicit backend URLs (e.g., cross-origin dev setups)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export interface ApiResponse<T = any> {
   success: boolean;
